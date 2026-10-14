@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Set the Hook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0b1d2a; --bg2:#10283a; --fg:#eaf4f8; --muted:#8fb3c4;
+  --accent:#ffb020; --water:#2bb3c0; --ok:#4cd68a; --bad:#ff5d5d;
+  --card:rgba(255,255,255,.06); --line:rgba(255,255,255,.14);
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#f3f8fa; --bg2:#e2eef3; --fg:#0b1d2a; --muted:#4a6b7a;
+    --accent:#d97800; --water:#0e8b97; --card:rgba(0,0,0,.04); --line:rgba(0,0,0,.12);
+  }
+}
+:root[data-theme="light"]{
+  --bg:#f3f8fa; --bg2:#e2eef3; --fg:#0b1d2a; --muted:#4a6b7a;
+  --accent:#d97800; --water:#0e8b97; --card:rgba(0,0,0,.04); --line:rgba(0,0,0,.12);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden}
+body{
+  background:radial-gradient(ellipse at 50% 120%,var(--bg2),var(--bg) 70%);
+  color:var(--fg); font-family:"Inter",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.deck{position:relative;width:100vw;height:100vh}
+.slide{
+  position:absolute;inset:0;display:flex;flex-direction:column;justify-content:safe center;
+  padding:6vh max(16px,8vw) 10vh;opacity:0;pointer-events:none;
+  transform:translateY(24px);transition:opacity .45s,transform .45s;overflow-y:auto;
+}
+.slide.active{opacity:1;pointer-events:auto;transform:none}
+h1{font-size:clamp(2.2rem,7vw,5.5rem);line-height:1.08;margin:0 0 .3em;font-weight:900;letter-spacing:-.02em}
+h2{font-size:clamp(1.6rem,4.5vw,3.4rem);margin:0 0 .6em;font-weight:900;letter-spacing:-.01em}
+p,li{font-size:clamp(1rem,2.2vw,1.6rem);line-height:1.55}
+.muted{color:var(--muted)}
+.accent{color:var(--accent)}
+.kicker{font-family:"JetBrains Mono",monospace;color:var(--water);letter-spacing:.12em;text-transform:uppercase;font-size:clamp(.75rem,1.4vw,1rem);margin-bottom:1em}
+.big{font-size:clamp(3rem,12vw,9rem);font-weight:900;line-height:1}
+.grid{display:grid;gap:clamp(10px,2vw,24px);grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:clamp(14px,2.4vw,28px)}
+.card h3{margin:.1em 0 .4em;font-size:clamp(1.1rem,2.4vw,1.8rem)}
+.card p{margin:0;font-size:clamp(.95rem,1.8vw,1.25rem)}
+.emoji{font-size:clamp(2rem,5vw,3.4rem)}
+button,.btn{
+  font:inherit;font-size:clamp(1rem,2vw,1.35rem);cursor:pointer;border-radius:14px;
+  padding:.7em 1.2em;border:1px solid var(--line);background:var(--card);color:var(--fg);
+  text-decoration:none;display:inline-block;transition:transform .15s,background .2s;
+}
+button:hover,.btn:hover{transform:translateY(-2px);border-color:var(--water)}
+.btn.primary{background:var(--accent);color:#1a1100;border-color:transparent;font-weight:700}
+.options{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-top:1em}
+.options button.right{background:var(--ok);color:#03210f;border-color:transparent}
+.options button.wrong{opacity:.4;text-decoration:line-through}
+.reveal{opacity:0;transform:translateY(10px);transition:all .4s}
+.reveal.on{opacity:1;transform:none}
+.facts{margin:0;padding-left:1.1em}
+.facts li{font-size:clamp(.95rem,1.9vw,1.35rem);line-height:1.45;margin-bottom:.25em}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:clamp(16px,4vw,48px);align-items:center}
+@media (max-width:720px){.split{grid-template-columns:1fr}}
+.vs{display:flex;align-items:center;gap:1em;font-size:clamp(1rem,2.4vw,1.7rem)}
+.vs .arrow{color:var(--accent);font-weight:900}
+table.map{border-collapse:collapse;width:100%}
+table.map td{padding:.55em .6em;border-bottom:1px solid var(--line);font-size:clamp(.95rem,2vw,1.45rem)}
+table.map td:first-child{color:var(--water);white-space:nowrap}
+table.map td:nth-child(2){color:var(--accent);text-align:center}
+.qa{display:grid;gap:10px;margin-top:1em}
+.qa details{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:.8em 1em}
+.qa summary{cursor:pointer;font-size:clamp(1rem,2vw,1.4rem);font-weight:700}
+.qa details p{margin:.5em 0 0;color:var(--muted)}
+.qr{display:block;width:max-content;margin:1em auto .4em;padding:8px;background:#fff;border-radius:12px;line-height:0}
+.qr:empty{display:none}
+.url{font-family:"JetBrains Mono",monospace;color:var(--water)}
+
+/* water + bobber game */
+.pond{position:relative;height:clamp(220px,40vh,380px);border-radius:22px;overflow:hidden;
+  background:linear-gradient(to bottom,transparent 0 45%,rgba(43,179,192,.25) 45%,rgba(43,179,192,.55));
+  border:1px solid var(--line);cursor:pointer;user-select:none}
+.pond::after{content:"";position:absolute;left:0;right:0;top:45%;height:2px;background:var(--water);opacity:.7}
+.bobber{position:absolute;left:50%;top:45%;width:34px;height:80px;margin-left:-17px;margin-top:-40px;transition:transform .12s}
+.bobber .top{height:50%;background:var(--bad);border-radius:17px 17px 4px 4px}
+.bobber .bot{height:50%;background:#fff;border-radius:4px 4px 17px 17px}
+.bobber .line{position:absolute;left:50%;bottom:100%;width:1px;height:50vh;background:var(--muted)}
+.pond.idle .bobber{animation:bob 2.2s ease-in-out infinite}
+.pond.bite .bobber{transform:translateY(70px)}
+@keyframes bob{50%{transform:translateY(6px)}}
+.pond-msg{position:absolute;left:0;right:0;bottom:12px;text-align:center;font-weight:900;font-size:clamp(1.1rem,3vw,2rem)}
+.board{list-style:none;padding:0;margin:.6em 0 0;font-family:"JetBrains Mono",monospace}
+.board li{font-size:clamp(.95rem,1.8vw,1.2rem)}
+
+/* pain board */
+.pain-input{display:flex;gap:10px;flex-wrap:wrap;margin:1em 0}
+.pain-input input{flex:1;min-width:200px;font:inherit;font-size:clamp(1rem,2vw,1.35rem);padding:.6em .9em;border-radius:14px;border:1px solid var(--line);background:var(--card);color:var(--fg)}
+.pains{display:flex;flex-wrap:wrap;gap:10px}
+.pain{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:.4em .9em;font-size:clamp(.95rem,1.9vw,1.25rem);cursor:pointer;display:flex;gap:.5em;align-items:center}
+.pain b{font-family:"JetBrains Mono",monospace;color:var(--accent)}
+.pain.pick{background:var(--accent);color:#1a1100}
+
+/* chrome */
+.progress{position:fixed;left:0;bottom:0;height:5px;background:var(--accent);transition:width .4s;z-index:5}
+.hud{position:fixed;right:max(16px,2vw);bottom:14px;display:flex;gap:12px;align-items:center;font-family:"JetBrains Mono",monospace;font-size:.85rem;color:var(--muted);z-index:6}
+.hud button{font-size:.8rem;padding:.35em .7em;border-radius:8px}
+.clock.late{color:var(--bad)}
+.notes{display:none}
+body.show-notes .notes{display:block;position:fixed;left:0;right:0;bottom:5px;max-height:30vh;overflow:auto;
+  background:rgba(0,0,0,.85);color:#ffe7b0;padding:12px max(16px,4vw) 44px;font-size:clamp(.9rem,1.6vw,1.1rem);line-height:1.5;z-index:4}
+.nav-zone{position:fixed;top:0;bottom:0;width:5vw;z-index:3;cursor:pointer}
+.nav-zone.l{left:0}.nav-zone.r{right:0}
+.help{position:fixed;left:max(16px,2vw);bottom:14px;font-size:.8rem;color:var(--muted);z-index:6;font-family:"JetBrains Mono",monospace}
+@media (max-width:720px){.help{display:none}.nav-zone{display:none}}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+<div class="deck" id="deck">
+
+<!-- ============ 0. Opening (0–3 min) ============ -->
+<section class="slide" data-min="0">
+  <div class="kicker">🎣 Team talk · 30 min</div>
+  <h1>Talk less.<br><span class="accent">Set the hook.</span></h1>
+  <p class="muted">What someone who can't stand small annoyances does on weekends</p>
+  <p style="margin-top:2em" class="muted">→ / click to advance · <b>N</b> speaker notes · <b>T</b> timer</p>
+  <aside class="notes">Welcome. "Today there are no slides — I'll show you things I built. Even this talk isn't PowerPoint; it runs from GitHub." That's the first 'show, don't tell'. Press T to start the timer.</aside>
+</section>
+
+<section class="slide" data-min="1">
+  <div class="kicker">Q1 · Take a guess</div>
+  <h2>What's my hobby?</h2>
+  <div class="options" data-quiz>
+    <button>⛳ Golf</button>
+    <button data-right>🎣 Fishing</button>
+    <button>🏃 Running</button>
+    <button data-right>💻 Software</button>
+  </div>
+  <p class="reveal" style="margin-top:1.2em">Answer: <b class="accent">both</b>. But honestly… software is the <b>real</b> one.</p>
+  <aside class="notes">Show of hands: who picked fishing, who picked software? Click any option to reveal.</aside>
+</section>
+
+<section class="slide" data-min="2">
+  <div class="kicker">About me</div>
+  <h2>Three things about me</h2>
+  <div class="grid">
+    <div class="card"><div class="emoji">😤</div><h3>I can't live with friction</h3><p>"That's just how it is" is not an answer I accept.</p></div>
+    <div class="card"><div class="emoji">⚡</div><h3>Action is everything</h3><p>Ideas are free. Doing it is what makes the difference.</p></div>
+    <div class="card"><div class="emoji">👀</div><h3>Show &gt; tell</h3><p>One demo beats a hundred meetings.</p></div>
+  </div>
+  <aside class="notes">These three principles are the backbone of the talk. Promise to come back to them for every project.</aside>
+</section>
+
+<!-- ============ 1. Fishing × Software (3–7 min) ============ -->
+<section class="slide" data-min="3">
+  <div class="kicker">Fishing × Software</div>
+  <h2>It's really the same hobby</h2>
+  <table class="map">
+    <tr class="reveal"><td>Finding the spot</td><td>=</td><td>Finding the friction</td></tr>
+    <tr class="reveal"><td>Rigging the line</td><td>=</td><td>Picking the tools &amp; stack</td></tr>
+    <tr class="reveal"><td>Waiting for a bite</td><td>=</td><td>Waiting for the idea</td></tr>
+    <tr class="reveal"><td>Strike!</td><td>=</td><td><b>Start building — now</b></td></tr>
+    <tr class="reveal"><td>The tug on the line</td><td>=</td><td>Shipping it and seeing someone use it</td></tr>
+  </table>
+  <aside class="notes">One row per click. Ask: "Have you ever missed the moment to strike at work?" Take one or two answers.</aside>
+</section>
+
+<section class="slide" data-min="5">
+  <div class="kicker">The point</div>
+  <p class="muted">You can feel the bite, but</p>
+  <div class="big">no hookset,</div>
+  <p class="big accent" style="font-size:clamp(2rem,7vw,5rem)">no fish.</p>
+  <aside class="notes">Pause. "Everyone has ideas. The difference is setting the hook." Next: three fish I landed.</aside>
+</section>
+
+<!-- ============ 2. Three projects (7–20 min) ============ -->
+<section class="slide" data-min="7">
+  <div class="kicker">Today's catch 🐟🐟🐟</div>
+  <h2>Three fish I landed</h2>
+  <div class="grid">
+    <a class="card btn" href="#" data-goto="p-blunux"><div class="emoji">🐧</div><h3>Blunux</h3><p class="url">blunux.com</p></a>
+    <a class="card btn" href="#" data-goto="p-aktie"><div class="emoji">📈</div><h3>Aktiesignal</h3><p class="url">App Store · iOS</p></a>
+    <a class="card btn" href="#" data-goto="p-blunod"><div class="emoji">🚛</div><h3>blunod</h3><p class="url">blunod.se</p></a>
+  </div>
+  <p class="muted" style="margin-top:1.2em">Guess what each one does from the name alone →</p>
+  <aside class="notes">Let people guess from the names. Each project slide starts with a quick quiz.</aside>
+</section>
+
+<!-- Blunux -->
+<section class="slide" data-min="8" id="p-blunux">
+  <div class="kicker">🐟 1 / 3 · blunux.com</div>
+  <h2>What is Blunux?</h2>
+  <div class="options" data-quiz>
+    <button>🎮 A game engine</button>
+    <button data-right>🐧 A Linux distro</button>
+    <button>🔵 A Bluetooth tool</button>
+    <button>☁️ A cloud service</button>
+  </div>
+  <div class="reveal split" style="margin-top:1.4em">
+    <ul class="facts">
+      <li><b>Arch Linux that anyone can use</b></li>
+      <li>KDE Plasma desktop out of the box</li>
+      <li>Installs in minutes, rolling updates</li>
+      <li>MIT licensed — free forever</li>
+    </ul>
+    <div style="text-align:center">
+      <a class="btn primary" href="https://blunux.com" target="_blank" rel="noopener">🔴 Open it live</a>
+      <div class="qr" data-qr="https://blunux.com"></div>
+    </div>
+  </div>
+  <aside class="notes">After the reveal, tell your story: what annoyed you about installing/using Linux? How long until the first working ISO? Then open the live site for ~30 seconds. Ask: "Who here has tried Linux at home?" (~4 min)</aside>
+</section>
+
+<!-- Aktiesignal -->
+<section class="slide" data-min="12" id="p-aktie">
+  <div class="kicker">🐟 2 / 3 · iOS app</div>
+  <h2>Aktiesignal — what does it trade with?</h2>
+  <div class="options" data-quiz>
+    <button>💳 Your real money</button>
+    <button>🪙 Crypto</button>
+    <button data-right>🎲 Imaginary money, real market</button>
+    <button>🍪 Cookies</button>
+  </div>
+  <div class="reveal split" style="margin-top:1.4em">
+    <ul class="facts">
+      <li>Real <b>Stockholm exchange</b> data, 10 000 kr of pretend money</li>
+      <li>Daily signal: Strong Buy → Strong Sell (RSI, MACD, Bollinger…)</li>
+      <li>Names hidden behind numbers — learn the method, not the hype</li>
+      <li>Hit rate <i>always</i> shown with its sample size</li>
+    </ul>
+    <div style="text-align:center">
+      <a class="btn primary" href="https://apps.apple.com/us/app/aktiesignal/id6809129274" target="_blank" rel="noopener">🔴 App Store</a>
+      <div class="qr" data-qr="https://apps.apple.com/us/app/aktiesignal/id6809129274"></div>
+      <p class="muted" style="font-size:1rem">Scan it now — install during the talk 📱</p>
+    </div>
+  </div>
+  <aside class="notes">Story: why anonymise the stocks? Why insist on showing sample size next to hit rate? Ask: "Would you trust a 90% hit rate from 3 trades?" Not investment advice 😉 (~4 min)</aside>
+</section>
+
+<!-- blunod -->
+<section class="slide" data-min="16" id="p-blunod">
+  <div class="kicker">🐟 3 / 3 · blunod.se</div>
+  <h2>Who is blunod built for?</h2>
+  <div class="options" data-quiz>
+    <button>🎣 Anglers</button>
+    <button data-right>🚛 Heavy-truck drivers</button>
+    <button>⛵ Sailors</button>
+    <button>🥾 Hikers</button>
+  </div>
+  <div class="reveal split" style="margin-top:1.4em">
+    <ul class="facts">
+      <li>A map of the places that matter to <b>truck drivers</b></li>
+      <li>Weigh stations · border crossings · port gates</li>
+      <li>Works <b>offline</b> — where coverage dies, it doesn't</li>
+    </ul>
+    <div style="text-align:center">
+      <a class="btn primary" href="https://blunod.se" target="_blank" rel="noopener">🔴 Open it live</a>
+      <div class="qr" data-qr="https://blunod.se"></div>
+    </div>
+  </div>
+  <aside class="notes">This one is closest to our daily work — trucks. Story: where did the idea come from? Ask the team: "What other spots would a driver want on this map?" (~4 min)</aside>
+</section>
+
+<section class="slide" data-min="19">
+  <div class="kicker">The pattern</div>
+  <h2>All three were caught the same way</h2>
+  <div class="vs reveal">😤 It bugs me <span class="arrow">→</span> ⚡ Build it today <span class="arrow">→</span> 👀 Show it <span class="arrow">→</span> 🔁</div>
+  <p class="reveal muted" style="margin-top:1.4em">I don't wait for the perfect plan. When the float goes under, I pull.</p>
+  <aside class="notes">Next: a game! "Let's test your hookset reflexes."</aside>
+</section>
+
+<!-- ============ 3. Bobber game (20–23 min) ============ -->
+<section class="slide" data-min="20">
+  <div class="kicker">Mini-game · Hookset test</div>
+  <h2>When the float dips — click <span class="accent">now</span>!</h2>
+  <div class="split" style="align-items:start">
+    <div class="pond idle" id="pond" tabindex="0">
+      <div class="bobber"><div class="line"></div><div class="top"></div><div class="bot"></div></div>
+      <div class="pond-msg" id="pond-msg">Click (or Space) to cast</div>
+    </div>
+    <div>
+      <p class="muted" style="margin-top:0">🏆 Fastest hooksets</p>
+      <ol class="board" id="board"></ol>
+      <button id="board-reset" style="margin-top:1em;font-size:.9rem">Reset scores</button>
+    </div>
+  </div>
+  <aside class="notes">Get 3–5 people up for one try each. Clicking too early = "missed strike". Lesson: you need patience AND fast action. On this slide Space plays the game; use → to move on.</aside>
+</section>
+
+<!-- ============ 4. Your friction (23–28 min) ============ -->
+<section class="slide" data-min="23">
+  <div class="kicker">Your turn</div>
+  <h2>What <span class="accent">bugs</span> you the most right now?</h2>
+  <form class="pain-input" id="pain-form">
+    <input id="pain-text" placeholder="e.g. the same Excel report, by hand, every week…" autocomplete="off">
+    <button class="btn primary" type="submit">Cast it 🎣</button>
+  </form>
+  <div class="pains" id="pains"></div>
+  <p class="muted" style="font-size:1rem">Click an item to 👍 +1 · double-click to remove</p>
+  <aside class="notes">Type in what people call out — one each. Vote with 👍. About 5 minutes. The winner goes to the next slide.</aside>
+</section>
+
+<section class="slide" data-min="26">
+  <div class="kicker">Today's strike</div>
+  <h2>The biggest bite</h2>
+  <div class="big accent" id="top-pain" style="font-size:clamp(1.8rem,6vw,4.5rem)">—</div>
+  <p class="reveal" style="margin-top:1em">👉 <b>Who</b> shows <b>what</b>, by <b>when</b>?</p>
+  <aside class="notes">Get one concrete commitment. Goal: a demo at the next team meeting. Show, don't tell.</aside>
+</section>
+
+<!-- ============ 5. Close (28–30 min) ============ -->
+<section class="slide" data-min="28">
+  <div class="kicker">Wrap-up</div>
+  <div class="big">Talk ×100</div>
+  <p class="big accent" style="font-size:clamp(2rem,8vw,6rem)">&lt; Show ×1</p>
+  <p class="muted" style="margin-top:1.4em">And this talk wasn't PowerPoint either — it ran from <b>GitHub</b>. 😉</p>
+  <aside class="notes">Last 'show': briefly open this talk's source (index.html) on GitHub. Then questions.</aside>
+</section>
+
+<section class="slide" data-min="29">
+  <h1>Questions?<br>Cast away 🎣</h1>
+  <p class="muted">blunux.com · Aktiesignal (App Store) · blunod.se</p>
+  <aside class="notes">Q&amp;A. Thank everyone.</aside>
+</section>
+
+</div>
+
+<div class="nav-zone l" data-dir="-1"></div>
+<div class="nav-zone r" data-dir="1"></div>
+<div class="progress" id="progress"></div>
+<div class="help">←/→ move · N notes · T timer · F fullscreen · D theme</div>
+<div class="hud">
+  <span id="counter"></span>
+  <span class="clock" id="clock" title="elapsed / plan">00:00</span>
+  <button id="timer-btn">▶ Timer</button>
+</div>
+
+<script>
+const CONFIG = { totalMinutes: 30 };
+
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} },
+};
+
+const slides = [...document.querySelectorAll(".slide")];
+let idx = 0;
+
+function revealsOf(s){ return [...s.querySelectorAll(".reveal")]; }
+
+function show(i){
+  idx = Math.max(0, Math.min(slides.length - 1, i));
+  slides.forEach((s, n) => s.classList.toggle("active", n === idx));
+  document.getElementById("progress").style.width = ((idx + 1) / slides.length * 100) + "%";
+  document.getElementById("counter").textContent = (idx + 1) + " / " + slides.length;
+  history.replaceState(null, "", "#" + (idx + 1));
+  if (slides[idx].querySelector("#top-pain")) renderTop();
+  tick();
+}
+
+function step(dir){
+  const s = slides[idx];
+  if (dir > 0){
+    // on quiz slides, reveals open only when an answer is clicked
+    if (!s.querySelector("[data-quiz]")){
+      const next = revealsOf(s).find(r => !r.classList.contains("on"));
+      if (next){ next.classList.add("on"); return; }
+    }
+  } else {
+    const on = revealsOf(s).filter(r => r.classList.contains("on"));
+    if (on.length && !s.querySelector("[data-quiz]")){ on[on.length-1].classList.remove("on"); return; }
+  }
+  show(idx + dir);
+}
+
+document.addEventListener("keydown", e => {
+  if (e.target.matches("input,textarea")) return;
+  const k = e.key;
+  if (["ArrowRight","PageDown","Enter"].includes(k)) { e.preventDefault(); step(1); }
+  else if (k === " " && !slides[idx].querySelector("#pond")) { e.preventDefault(); step(1); }
+  else if (["ArrowLeft","PageUp","Backspace"].includes(k)) { e.preventDefault(); step(-1); }
+  else if (k === "Home") show(0);
+  else if (k === "End") show(slides.length - 1);
+  else if (k === "n" || k === "N") document.body.classList.toggle("show-notes");
+  else if (k === "t" || k === "T") toggleTimer();
+  else if (k === "f" || k === "F") { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.(); }
+  else if (k === "d" || k === "D") {
+    const r = document.documentElement;
+    const dark = getComputedStyle(r).getPropertyValue("--bg").trim() === "#0b1d2a";
+    r.dataset.theme = dark ? "light" : "dark";
+  }
+});
+document.querySelectorAll(".nav-zone").forEach(z => z.addEventListener("click", () => step(+z.dataset.dir)));
+
+// swipe
+let tx = null;
+document.addEventListener("touchstart", e => { tx = e.touches[0].clientX; }, {passive:true});
+document.addEventListener("touchend", e => {
+  if (tx === null) return;
+  const dx = e.changedTouches[0].clientX - tx; tx = null;
+  if (Math.abs(dx) > 60) step(dx < 0 ? 1 : -1);
+});
+
+// goto links
+document.querySelectorAll("[data-goto]").forEach(a => a.addEventListener("click", e => {
+  e.preventDefault();
+  show(slides.indexOf(document.getElementById(a.dataset.goto)));
+}));
+// QR codes
+document.querySelectorAll("[data-qr]").forEach(el => {
+  if (window.QRCode) new QRCode(el, { text: el.dataset.qr, width: 140, height: 140, colorDark: "#0b1d2a", colorLight: "#ffffff" });
+});
+
+// quiz
+document.querySelectorAll("[data-quiz]").forEach(q => {
+  q.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+    q.querySelectorAll("button").forEach(x => x.classList.add(x.hasAttribute("data-right") ? "right" : "wrong"));
+    q.closest(".slide").querySelectorAll(".reveal").forEach(r => r.classList.add("on"));
+  }));
+});
+
+// timer
+let t0 = null, timerOn = false, elapsed = 0, raf = null;
+function fmt(ms){ const s = Math.floor(ms/1000); return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0"); }
+function tick(){
+  const now = timerOn ? elapsed + (Date.now() - t0) : elapsed;
+  const plan = +(slides[idx].dataset.min || 0);
+  const nextPlan = slides[idx+1] ? +slides[idx+1].dataset.min : CONFIG.totalMinutes;
+  const c = document.getElementById("clock");
+  c.textContent = fmt(now) + " · plan " + plan + "–" + nextPlan + " min";
+  c.classList.toggle("late", now/60000 > nextPlan);
+}
+function toggleTimer(){
+  if (timerOn){ elapsed += Date.now() - t0; timerOn = false; clearInterval(raf); }
+  else { t0 = Date.now(); timerOn = true; raf = setInterval(tick, 500); }
+  document.getElementById("timer-btn").textContent = timerOn ? "⏸ Timer" : "▶ Timer";
+  tick();
+}
+document.getElementById("timer-btn").addEventListener("click", toggleTimer);
+
+// bobber game
+(() => {
+  const pond = document.getElementById("pond"), msg = document.getElementById("pond-msg");
+  const boardEl = document.getElementById("board");
+  let state = "idle", timer = null, biteAt = 0;
+  let board = store.get("chamjil-board", []);
+  function renderBoard(){
+    boardEl.innerHTML = board.slice(0,5).map((r,i) => `<li>${["🥇","🥈","🥉","4.","5."][i]} ${r.ms} ms · ${r.name}</li>`).join("") || "<li class='muted'>No catches yet</li>";
+  }
+  function set(s, text){ state = s; pond.className = "pond " + (s === "bite" ? "bite" : "idle"); msg.textContent = text; }
+  function act(){
+    if (state === "idle" || state === "done"){
+      set("wait", "Wait for it… 🤫");
+      timer = setTimeout(() => { biteAt = performance.now(); set("bite", "NOW! Strike!!"); }, 1500 + Math.random() * 3500);
+    } else if (state === "wait"){
+      clearTimeout(timer); set("done", "Missed strike! 😅 Too early (click to retry)");
+    } else if (state === "bite"){
+      const ms = Math.round(performance.now() - biteAt);
+      set("done", `🐟 ${ms} ms! (click to go again)`);
+      setTimeout(() => {
+        const name = (prompt(`${ms} ms! Enter your name for the leaderboard`) || "").trim();
+        if (name){ board.push({name: name.slice(0,20), ms}); board.sort((a,b)=>a.ms-b.ms); store.set("chamjil-board", board); renderBoard(); }
+      }, 50);
+    }
+  }
+  pond.addEventListener("click", e => { e.stopPropagation(); act(); });
+  document.addEventListener("keydown", e => {
+    if (e.key === " " && slides[idx].contains(pond) && !e.target.matches("input,textarea")) { e.preventDefault(); act(); }
+  });
+  document.getElementById("board-reset").addEventListener("click", () => { board = []; store.set("chamjil-board", board); renderBoard(); });
+  renderBoard();
+})();
+
+// friction board
+let pains = store.get("pains", []);
+function esc(s){ return s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function renderPains(){
+  const el = document.getElementById("pains");
+  const max = Math.max(0, ...pains.map(p => p.v));
+  el.innerHTML = pains.map((p,i) => `<span class="pain${p.v && p.v === max ? " pick" : ""}" data-i="${i}">${esc(p.t)} <b>👍${p.v}</b></span>`).join("");
+}
+function renderTop(){
+  const top = [...pains].sort((a,b) => b.v - a.v)[0];
+  document.getElementById("top-pain").textContent = top ? "“" + top.t + "”" : "Nothing cast yet 🤔";
+}
+document.getElementById("pain-form").addEventListener("submit", e => {
+  e.preventDefault();
+  const inp = document.getElementById("pain-text"), t = inp.value.trim();
+  if (!t) return;
+  pains.push({t, v:0}); inp.value = ""; store.set("pains", pains); renderPains();
+});
+let clickTimer = null;
+document.getElementById("pains").addEventListener("click", e => {
+  const p = e.target.closest(".pain"); if (!p) return;
+  clearTimeout(clickTimer);
+  clickTimer = setTimeout(() => { pains[+p.dataset.i].v++; store.set("pains", pains); renderPains(); }, 220);
+});
+document.getElementById("pains").addEventListener("dblclick", e => {
+  const p = e.target.closest(".pain"); if (!p) return;
+  clearTimeout(clickTimer);
+  pains.splice(+p.dataset.i, 1); store.set("pains", pains); renderPains();
+});
+renderPains();
+
+const fromHash = () => show((parseInt(location.hash.slice(1)) || 1) - 1);
+window.addEventListener("hashchange", fromHash);
+fromHash();
+</script>
+</body>
+</html>
